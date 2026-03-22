@@ -189,3 +189,86 @@ fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn devices_array_has_20_entries() {
+        assert_eq!(DEVICES.len(), 20);
+    }
+
+    #[test]
+    fn all_device_codenames_are_unique() {
+        let codenames: HashSet<&str> = DEVICES.iter().map(|(c, _)| *c).collect();
+        assert_eq!(
+            codenames.len(),
+            DEVICES.len(),
+            "duplicate codenames detected"
+        );
+    }
+
+    #[test]
+    fn all_device_names_are_non_empty() {
+        for (codename, name) in DEVICES {
+            assert!(
+                !codename.is_empty(),
+                "codename should not be empty"
+            );
+            assert!(
+                !name.is_empty(),
+                "device name should not be empty for codename '{codename}'"
+            );
+        }
+    }
+
+    #[test]
+    fn devices_contains_known_entries() {
+        let codenames: Vec<&str> = DEVICES.iter().map(|(c, _)| *c).collect();
+        assert!(codenames.contains(&"husky"), "missing husky (Pixel 8 Pro)");
+        assert!(codenames.contains(&"tokay"), "missing tokay (Pixel 9)");
+        assert!(codenames.contains(&"oriole"), "missing oriole (Pixel 6)");
+    }
+
+    #[test]
+    fn blake3_hash_determinism() {
+        let data = b"GrapheneOS factory image test content";
+        let h1 = blake3::hash(data);
+        let h2 = blake3::hash(data);
+        assert_eq!(h1, h2);
+        assert_eq!(h1.to_hex().len(), 64);
+    }
+
+    #[test]
+    fn blake3_different_content_different_hash() {
+        let h1 = blake3::hash(b"factory-image-v1");
+        let h2 = blake3::hash(b"factory-image-v2");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn zip_detection_pk_magic_bytes() {
+        let zip_header: Vec<u8> = vec![0x50, 0x4B, 0x03, 0x04, 0x00, 0x00];
+        assert!(
+            zip_header.len() >= 4 && &zip_header[..4] == b"PK\x03\x04",
+            "valid ZIP magic bytes should be detected"
+        );
+    }
+
+    #[test]
+    fn non_zip_detection() {
+        let not_zip: Vec<u8> = vec![0x7F, 0x45, 0x4C, 0x46]; // ELF header
+        assert!(
+            !(not_zip.len() >= 4 && &not_zip[..4] == b"PK\x03\x04"),
+            "ELF header should not be detected as ZIP"
+        );
+
+        let too_short: Vec<u8> = vec![0x50, 0x4B];
+        assert!(
+            !(too_short.len() >= 4 && &too_short[..4] == b"PK\x03\x04"),
+            "data shorter than 4 bytes should not be detected as ZIP"
+        );
+    }
+}
